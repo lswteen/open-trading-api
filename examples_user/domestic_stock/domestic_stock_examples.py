@@ -1,9 +1,10 @@
 import sys
+import os
 import logging
 
 import pandas as pd
 
-sys.path.extend(['..', '.'])
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import kis_auth as ka
 from domestic_stock_functions import *
 
@@ -11,8 +12,10 @@ from domestic_stock_functions import *
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 인증
-ka.auth()
+# PRD 인증 
+#ka.auth()
+# 모의투자 인증
+ka.auth(svr="vps")
 trenv = ka.getTREnv()
 
 ##############################################################################################

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Toss Trading Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="static/css/style.css">
+</head>
+<body>
+    <div class="grain-overlay"></div>
+    
+    <nav class="nav">
+        <div class="nav-content">
+            <div class="logo">
+                <span class="logo-icon"></span>
+                <span class="logo-text">Investment</span>
+            </div>
+            <div class="user-profile">
+                <div class="status-dot"></div>
+                <span class="account-id">50159227</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <!-- Asset Summary -->
+        <header class="asset-summary">
+            <p class="summary-label">내 자산 현황</p>
+            <h1 class="total-balance">100,000,000<span class="currency">원</span></h1>
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <span class="label">수익률</span>
+                    <span class="value positive">+0.00%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="label">오늘 수익</span>
+                    <span class="value">0원</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Markets Grid -->
+        <section class="dashboard-grid">
+            <div class="card watchlist">
+                <div class="card-header">
+                    <h2>관심 종목</h2>
+                    <button class="btn-more">전체보기</button>
+                </div>
+                <div class="stock-list" id="stockList">
+                    <!-- Dynamic Items -->
+                    <div class="stock-item loading">
+                        <div class="shimmer"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card trading-panel">
+                <div class="card-header">
+                    <h2>빠른 주문</h2>
+                    <div class="tabs">
+                        <button class="tab active" data-type="buy">매수</button>
+                        <button class="tab" data-type="sell">매도</button>
+                    </div>
+                </div>
+                <div class="order-content">
+                    <div class="input-group">
+                        <label>종목코드</label>
+                        <input type="text" id="orderStockCode" placeholder="005930" value="005930">
+                    </div>
+                    <div class="input-group">
+                        <label>수량</label>
+                        <input type="number" id="orderQty" placeholder="0">
+                    </div>
+                    <div class="order-footer">
+                        <div class="price-info">
+                            <span>예상 주문금액</span>
+                            <strong id="estimatedAmount">0원</strong>
+                        </div>
+                        <button class="btn-order buy" id="executeOrderBtn">매수하기</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="static/js/app.js"></script>
+</body>
+</html>

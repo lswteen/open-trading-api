@@ -165,3 +165,7 @@ cython_debug/
 *.lock
 
 *_logs/
+
+# KIS API Config and Tokens
+kis_devlp.yaml
+KIS*
