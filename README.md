@@ -198,7 +198,6 @@ my_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 config_root = os.path.join(os.path.expanduser("~"), "폴더 경로", "config")
 ```
 ### 3.7. 실행파일 내 인증 설정 검토
-
 - 실행하려는 파일에서 인증 관련 설정을 검토 혹은 변경해줍니다. 국내주식 기능 전체를 이용하시려면, `domestic_stock/domestic_stock_examples.py` 파일을 확인해주세요. 
 ka.auth() 함수의 svr, product 매개변수를 아래와 같이 수정하면 실전환경(prod)에서 위탁계좌(-01)로 매매 테스트가 가능합니다.
 
@@ -209,7 +208,34 @@ import kis_auth as ka
 ka.auth(svr="prod", product="01") # 모의투자: svr="vps"
 ```
 
-## 4. 샘플 코드 실행
+## 4. 대시보드 실행 (Alpha Algo AI)
+
+본 프로젝트는 토스 증권 스타일의 웹 대시보드인 **Alpha Algo AI**를 제공합니다. 아래 명령어로 서버를 시작할 수 있습니다.
+
+```bash
+# 1. 의존성 설치 (최초 1회)
+uv sync
+
+# 2. 대시보드 서버 실행
+PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+- 실행 후 브라우저에서 **http://localhost:8000** 접속
+- `ALPHA AI` 로고와 함께 지수 미니 차트 및 실시간 거래대금 순위 확인 가능
+
+### ⏹️ 서버 중지 및 재시작 (Port Conflict 해결)
+
+이미 서버가 실행 중이어서 `Address already in use` 에러가 발생할 경우 아래 명령어로 기존 프로세스를 종료하고 재시작하세요.
+
+```bash
+# 1. 8000번 포트를 사용 중인 프로세스 종료 (macOS/Linux)
+lsof -ti:8000 | xargs kill -9
+
+# 2. 서버 재시작
+PYTHONPATH=. uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## 5. 샘플 코드 실행
 
 ### 4.1. 샘플 코드 실행
 

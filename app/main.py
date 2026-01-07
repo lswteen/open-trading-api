@@ -26,5 +26,7 @@ app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 app.mount("/static", StaticFiles(directory=os.path.join(frontend_path, "static")), name="static")
 
 @app.get("/")
-def read_root():
+@app.get("/stock/{code}")
+@app.get("/portfolio")
+def read_root(code: str = None):
     return FileResponse(os.path.join(frontend_path, "index.html"))

@@ -13,3 +13,4 @@ class Order(BaseModel):
     quantity: int
     price: float
     order_type: str  # 'buy' or 'sell'
+    order_dvsn: str = "00" # '00': 지정가, '01': 시장가
