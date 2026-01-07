@@ -34,6 +34,13 @@ const elements = {
     totalPflsRate: document.getElementById('totalPflsRate'),
     cashBalance: document.getElementById('cashBalance'),
     holdingsList: document.getElementById('holdingsList'),
+
+    // Modal Elements
+    modal: document.getElementById('globalModal'),
+    modalTitle: document.getElementById('modalTitle'),
+    modalMessage: document.getElementById('modalMessage'),
+    modalCancelBtn: document.getElementById('modalCancelBtn'),
+    modalConfirmBtn: document.getElementById('modalConfirmBtn'),
 };
 
 let currentOrderType = 'buy';
@@ -583,53 +590,93 @@ async function executeOrder() {
     const qty = parseInt(elements.orderQty.value);
     const price = parseFloat(elements.orderPrice.value);
 
-    if (!qty || qty <= 0) return alert('수량을 입력해주세요.');
-    if (currentOrderDvsn === '00' && (!price || price <= 0)) return alert('가격을 입력해주세요.');
+    if (!qty || qty <= 0) return showModal({ title: '알림', message: '수량을 입력해주세요.', type: 'alert' });
+    if (currentOrderDvsn === '00' && (!price || price <= 0)) return showModal({ title: '알림', message: '가격을 입력해주세요.', type: 'alert' });
 
-    const confirmed = confirm(`${currentStockCode} 종목을 ${qty}주 ${currentOrderType === 'buy' ? '구매' : '판매'}하시겠습니까?`);
-    if (!confirmed) return;
+    showModal({
+        title: `${currentOrderType === 'buy' ? '구매' : '판매'} 확인`,
+        message: `${currentStockCode} 종목을 ${qty}주 ${currentOrderType === 'buy' ? '구매' : '판매'}하시겠습니까?`,
+        type: 'confirm',
+        onConfirm: async () => {
+            try {
+                const response = await fetch(`${API_BASE}/order`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        stock_code: currentStockCode,
+                        quantity: qty,
+                        price: price,
+                        order_type: currentOrderType,
+                        order_dvsn: currentOrderDvsn
+                    })
+                });
 
-    try {
-        const response = await fetch(`${API_BASE}/order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                stock_code: currentStockCode,
-                quantity: qty,
-                price: price,
-                order_type: currentOrderType,
-                order_dvsn: currentOrderDvsn
-            })
-        });
+                const result = await response.json();
+                if (result.error) {
+                    showModal({ title: '주문 실패', message: result.error, type: 'alert' });
+                } else {
+                    const stockName = elements.mainPrice.offsetParent ? elements.stockName.textContent : currentStockCode;
+                    const sideLabel = currentOrderType === 'buy' ? '구매' : '판매';
+                    const priceLabel = currentOrderDvsn === '01' ? '시장가' : `${formatNumber(price)}원`;
 
-        const result = await response.json();
-        if (result.error) {
-            alert(`주문 실패: ${result.error}`);
-        } else {
-            // Get stock name from cache for a better alert
-            const stockName = elements.mainPrice.offsetParent ? elements.stockName.textContent : currentStockCode;
-            const sideLabel = currentOrderType === 'buy' ? '구매' : '판매';
-            const priceLabel = currentOrderDvsn === '01' ? '시장가' : `${formatNumber(price)}원`;
-
-            alert(`[${stockName}] ${qty}주 ${priceLabel} ${sideLabel} 주문이 완료되었습니다.`);
-
-            // Refresh balance and portfolio multiple times to catch backend updates
-            await fetchBalance();
-            if (elements.portfolioView.style.display !== 'none') {
-                await fetchPortfolio();
-            } else {
-                showPortfolio();
+                    showModal({
+                        title: '주문 완료',
+                        message: `[${stockName}] ${qty}주 ${priceLabel} ${sideLabel} 주문이 완료되었습니다.`,
+                        type: 'alert',
+                        onConfirm: () => {
+                            // Navigate/Refresh only after user clicks OK
+                            fetchBalance();
+                            if (elements.portfolioView.style.display !== 'none') {
+                                fetchPortfolio();
+                            } else {
+                                showPortfolio();
+                            }
+                            // Second refresh
+                            setTimeout(() => {
+                                fetchBalance();
+                                fetchPortfolio();
+                            }, 1000);
+                        }
+                    });
+                }
+            } catch (e) {
+                showModal({ title: '오류', message: '주문 처리 중 오류가 발생했습니다.', type: 'alert' });
             }
-
-            // Second refresh after a small delay just in case
-            setTimeout(() => {
-                fetchBalance();
-                fetchPortfolio();
-            }, 1000);
         }
-    } catch (e) {
-        alert('주문 처리 중 오류가 발생했습니다.');
-    }
+    });
+}
+
+// Modal Logic
+function showModal({ title, message, type = 'alert', onConfirm, onCancel }) {
+    elements.modalTitle.textContent = title;
+    elements.modalMessage.textContent = message;
+    elements.modal.style.display = 'flex';
+
+    // Reset buttons
+    elements.modalCancelBtn.style.display = type === 'confirm' ? 'block' : 'none';
+    elements.modalConfirmBtn.textContent = '확인';
+
+    // Clear previous event listeners
+    const newConfirmBtn = elements.modalConfirmBtn.cloneNode(true);
+    const newCancelBtn = elements.modalCancelBtn.cloneNode(true);
+    elements.modalConfirmBtn.parentNode.replaceChild(newConfirmBtn, elements.modalConfirmBtn);
+    elements.modalCancelBtn.parentNode.replaceChild(newCancelBtn, elements.modalCancelBtn);
+    elements.modalConfirmBtn = newConfirmBtn;
+    elements.modalCancelBtn = newCancelBtn;
+
+    elements.modalConfirmBtn.onclick = () => {
+        closeModal();
+        if (onConfirm) onConfirm();
+    };
+
+    elements.modalCancelBtn.onclick = () => {
+        closeModal();
+        if (onCancel) onCancel();
+    };
+}
+
+function closeModal() {
+    elements.modal.style.display = 'none';
 }
 
 function formatNumber(num) {
