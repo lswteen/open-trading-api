@@ -7,7 +7,7 @@
 ```text
 open-trading-api/
 ├── app/
-│   ├── api/v1/endpoints.py      # API 엔드포인트 정의 (지수, 랭킹, 차트 등)
+│   ├── api/v1/endpoints.py      # API 엔드포인트 정의 (지수, 랭킹, 차트, 주문 등)
 │   ├── application/
 │   │   └── trading_service.py   # 핵심 비즈니스 로직 및 인메모리 캐싱 구현
 │   └── infrastructure/
@@ -18,6 +18,9 @@ open-trading-api/
 │       ├── css/style.css        # Toss Deep Black 테마 및 네온 AI 아이콘 스타일
 │       ├── js/app.js            # 프론트엔드 비즈니스 로직 및 Canvas 차트 렌더링
 │       └── ai_logo.png          # 생성된 전용 AI 브랜딩 아이콘
+├── kis_resources/               # 한국투자증권 제공 리소스 (예제, 문서 등)
+│   ├── examples_user/           # API 호출 예제 코드
+│   └── docs/                    # KIS API 문서
 ├── run_server.md                # 서버 기동/중지 퀵 가이드
 └── project_summary.md           # [현재 파일] 프로젝트 상세 명세서
 ```

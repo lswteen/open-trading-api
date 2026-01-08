@@ -26,6 +26,9 @@ const elements = {
     orderQty: document.getElementById('orderQty'),
     estimatedAmount: document.getElementById('estimatedAmount'),
     buyingPower: document.getElementById('buyingPower'),
+    buyingPowerInfo: document.querySelector('.buying-power-info'),
+    holdingQtyInfo: document.getElementById('holdingQtyInfo'),
+    holdingQty: document.getElementById('holdingQty'),
     executeOrderBtn: document.getElementById('executeOrderBtn'),
 
     // Portfolio Elements
@@ -44,9 +47,11 @@ const elements = {
 };
 
 let currentOrderType = 'buy';
-let currentOrderDvsn = '00'; // 00: Limit, 01: Market
+let currentOrderDvsn = '00'; // 00: Limit, 01: Market, 05: Pre-Mkt, 06: Post-Mkt, 07: Single
 let currentStockCode = '';
 let currentStockPrice = 0;
+let currentOvertimePrice = 0; // New state for off-hours price
+let currentStockHoldingQty = 0; // User's holding quantity for current stock
 let hogaInterval = null;
 let homeInterval = null;
 let portfolioInterval = null;
@@ -95,15 +100,7 @@ function setupEventListeners() {
             tab.classList.add('active');
             currentOrderDvsn = tab.dataset.divsn;
 
-            // If Market, disable price input
-            if (currentOrderDvsn === '01') {
-                elements.orderPrice.value = currentStockPrice;
-                elements.orderPrice.disabled = true;
-                elements.orderPrice.style.opacity = '0.5';
-            } else {
-                elements.orderPrice.disabled = false;
-                elements.orderPrice.style.opacity = '1';
-            }
+            updateOrderPriceInputState();
             updateEstimatedAmount();
         });
     });
@@ -111,6 +108,43 @@ function setupEventListeners() {
     elements.orderPrice.addEventListener('input', updateEstimatedAmount);
     elements.orderQty.addEventListener('input', updateEstimatedAmount);
     elements.executeOrderBtn.addEventListener('click', executeOrder);
+
+    // Percentage Buttons Logic
+    document.querySelectorAll('.p-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const percent = parseFloat(btn.dataset.percent);
+
+            if (currentOrderType === 'sell') {
+                if (currentStockHoldingQty > 0) {
+                    const qty = Math.floor(currentStockHoldingQty * percent);
+                    elements.orderQty.value = qty;
+                    updateEstimatedAmount();
+                } else {
+                    showModal({ title: '알림', message: '보유 수량이 없습니다.', type: 'alert' });
+                }
+            } else if (currentOrderType === 'buy') {
+                // Optional: Logic for Buying Power % could go here 
+                // For now, let's keep it simple or just notify user it's for selling
+                // But usually users expect it to work for buying too (based on cash)
+                // The request specifically asked for "Portfolio stock sell click... 10,25.. total quantity sellable"
+                // So primarily focusing on sell is correct.
+
+                // Let's implement buy logic too for better UX
+                const price = parseFloat(elements.orderPrice.value) || currentStockPrice;
+                const balanceStr = elements.buyingPower.textContent.replace(/[^0-9]/g, '');
+                const balance = parseInt(balanceStr) || 0;
+
+                if (price > 0 && balance > 0) {
+                    const maxQty = Math.floor(balance / price);
+                    const qty = Math.floor(maxQty * percent);
+                    elements.orderQty.value = qty;
+                    updateEstimatedAmount();
+                } else {
+                    showModal({ title: '알림', message: '주문 가능 금액이나 가격을 확인해주세요.', type: 'alert' });
+                }
+            }
+        });
+    });
 }
 
 async function loadHomeData() {
@@ -244,8 +278,11 @@ function renderRankings(stocks) {
 async function selectStock(query, pushState = true) {
     let code = query;
 
-    // 만약 한글명(삼성전자 등)이 입력된 경우 검색 API로 코드 조회
-    if (!(query.length === 6 && /^\d+$/.test(query))) {
+    // 종목 코드 형식 체크: 6자리 숫자 또는 영문 포함 (예: 005930, 0015G0)
+    // 한글이나 공백이 포함되어 있으면 검색 API 사용
+    const isStockCode = /^[A-Z0-9]{6}$/i.test(query.trim());
+
+    if (!isStockCode) {
         try {
             const res = await fetch(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
             const results = await res.json();
@@ -300,7 +337,16 @@ async function fetchStockDetail(code) {
         elements.mainChange.textContent = `${isUp ? '+' : ''}${formatNumber(data.change_amount)} (${data.change_rate}%)`;
         elements.mainChange.className = `price-change ${isUp ? 'up' : 'down'}`;
 
-        elements.orderPrice.value = data.price;
+        // Capture off-hours price if available
+        currentOvertimePrice = data.overtime_price || data.price;
+
+        // If currently in an off-hours mode, update the locked price field
+        if (['05', '06', '07'].includes(currentOrderDvsn)) {
+            elements.orderPrice.value = currentOvertimePrice;
+            updateEstimatedAmount();
+        } else if (elements.orderPrice.value === '' || elements.orderPrice.value == 0) {
+            elements.orderPrice.value = data.price;
+        }
         updateEstimatedAmount();
     } catch (e) { }
 }
@@ -492,6 +538,33 @@ window.setOrderPrice = (price) => {
     updateEstimatedAmount();
 };
 
+function updateOrderPriceInputState() {
+    // Enable/Disable price input based on order division
+    // 01: Market, 05: Pre-Mkt(Fixed), 06: Post-Mkt(Fixed) -> Disabled
+    // 00: Limit, 07: Single(Limit) -> Enabled
+
+    if (['01', '05', '06'].includes(currentOrderDvsn)) {
+        elements.orderPrice.disabled = true;
+        elements.orderPrice.style.opacity = '0.5';
+
+        if (currentOrderDvsn === '01') {
+            elements.orderPrice.value = currentStockPrice;
+        } else if (['05', '06', '07'].includes(currentOrderDvsn)) {
+            // For 05/06/07, use overtime price if available, otherwise current
+            // Although 07 allows input, we default to the current single price
+            elements.orderPrice.value = currentOvertimePrice || currentStockPrice;
+        }
+    } else {
+        elements.orderPrice.disabled = false;
+        elements.orderPrice.style.opacity = '1';
+
+        // If switching to Single Price (07), suggest the overtime price
+        if (currentOrderDvsn === '07') {
+            elements.orderPrice.value = currentOvertimePrice || currentStockPrice;
+        }
+    }
+}
+
 function updateEstimatedAmount() {
     const qty = parseInt(elements.orderQty.value) || 0;
     const price = parseFloat(elements.orderPrice.value) || 0;
@@ -505,16 +578,24 @@ function updateOrderUI() {
 
     // Update price type tabs active state
     document.querySelectorAll('.price-type-tab').forEach(tab => {
-        if (tab.dataset.ordertype === currentOrderDvsn) {
+        if (tab.dataset.divsn === currentOrderDvsn) {
             tab.classList.add('active');
         } else {
             tab.classList.remove('active');
         }
     });
-    // Disable price input if market order
-    elements.orderPrice.disabled = currentOrderDvsn === '01';
-    if (currentOrderDvsn === '01') {
-        elements.orderPrice.value = ''; // Clear price for market order
+
+    updateOrderPriceInputState();
+
+    // Toggle Holdings/Buying Power Info
+    if (isBuy) {
+        elements.buyingPowerInfo.style.display = 'flex';
+        elements.holdingQtyInfo.style.display = 'none';
+    } else {
+        elements.buyingPowerInfo.style.display = 'none';
+        elements.holdingQtyInfo.style.display = 'flex';
+        // Ensure accurate holding qty is shown
+        elements.holdingQty.textContent = formatNumber(currentStockHoldingQty) + '주';
     }
 }
 
@@ -529,6 +610,9 @@ async function showPortfolio(pushState = true) {
     if (homeInterval) clearInterval(homeInterval);
     if (hogaInterval) clearInterval(hogaInterval);
     if (portfolioInterval) clearInterval(portfolioInterval);
+
+    // Clear stale data to prevent "briefly remains" issue
+    elements.holdingsList.innerHTML = '<div class="loading-shimmer">로딩 중...</div>';
 
     fetchPortfolio();
     portfolioInterval = setInterval(fetchPortfolio, 30000);
@@ -583,67 +667,91 @@ async function fetchBalance() {
         const data = await res.json();
         const power = parseFloat(data.summary?.orderable_cash || data.summary?.dnca_tot_amt || 0);
         elements.buyingPower.textContent = formatNumber(power) + '원';
+
+        // Update current stock holding quantity if in detail view
+        if (currentStockCode && data.holdings) {
+            const holding = data.holdings.find(h => h.pdno === currentStockCode);
+            currentStockHoldingQty = holding ? parseInt(holding.hldg_qty) : 0;
+            if (elements.holdingQty) elements.holdingQty.textContent = formatNumber(currentStockHoldingQty) + '주';
+        } else {
+            currentStockHoldingQty = 0;
+            if (elements.holdingQty) elements.holdingQty.textContent = '0주';
+        }
     } catch (e) { }
 }
 
 async function executeOrder() {
-    const qty = parseInt(elements.orderQty.value);
-    const price = parseFloat(elements.orderPrice.value);
+    try {
+        console.log('executeOrder called', { type: currentOrderType, dvsn: currentOrderDvsn });
 
-    if (!qty || qty <= 0) return showModal({ title: '알림', message: '수량을 입력해주세요.', type: 'alert' });
-    if (currentOrderDvsn === '00' && (!price || price <= 0)) return showModal({ title: '알림', message: '가격을 입력해주세요.', type: 'alert' });
-
-    showModal({
-        title: `${currentOrderType === 'buy' ? '구매' : '판매'} 확인`,
-        message: `${currentStockCode} 종목을 ${qty}주 ${currentOrderType === 'buy' ? '구매' : '판매'}하시겠습니까?`,
-        type: 'confirm',
-        onConfirm: async () => {
-            try {
-                const response = await fetch(`${API_BASE}/order`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        stock_code: currentStockCode,
-                        quantity: qty,
-                        price: price,
-                        order_type: currentOrderType,
-                        order_dvsn: currentOrderDvsn
-                    })
-                });
-
-                const result = await response.json();
-                if (result.error) {
-                    showModal({ title: '주문 실패', message: result.error, type: 'alert' });
-                } else {
-                    const stockName = elements.mainPrice.offsetParent ? elements.stockName.textContent : currentStockCode;
-                    const sideLabel = currentOrderType === 'buy' ? '구매' : '판매';
-                    const priceLabel = currentOrderDvsn === '01' ? '시장가' : `${formatNumber(price)}원`;
-
-                    showModal({
-                        title: '주문 완료',
-                        message: `[${stockName}] ${qty}주 ${priceLabel} ${sideLabel} 주문이 완료되었습니다.`,
-                        type: 'alert',
-                        onConfirm: () => {
-                            // Navigate/Refresh only after user clicks OK
-                            fetchBalance();
-                            if (elements.portfolioView.style.display !== 'none') {
-                                fetchPortfolio();
-                            } else {
-                                showPortfolio();
-                            }
-                            // Second refresh
-                            setTimeout(() => {
-                                fetchBalance();
-                                fetchPortfolio();
-                            }, 1000);
-                        }
-                    });
-                }
-            } catch (e) {
-                showModal({ title: '오류', message: '주문 처리 중 오류가 발생했습니다.', type: 'alert' });
-            }
+        if (!elements.orderQty || !elements.orderPrice) {
+            console.error('Order inputs missing');
+            return showModal({ title: '오류', message: '입력 요소를 찾을 수 없습니다.', type: 'alert' });
         }
-    });
+
+        const qty = parseInt(elements.orderQty.value);
+        const price = parseFloat(elements.orderPrice.value);
+
+        if (!qty || qty <= 0) return showModal({ title: '알림', message: '수량을 입력해주세요.', type: 'alert' });
+        if (currentOrderDvsn === '00' && (!price || price <= 0)) return showModal({ title: '알림', message: '가격을 입력해주세요.', type: 'alert' });
+
+        showModal({
+            title: `${currentOrderType === 'buy' ? '구매' : '판매'} 확인`,
+            message: `${currentStockCode} 종목을 ${qty}주 ${currentOrderType === 'buy' ? '구매' : '판매'}하시겠습니까?`,
+            type: 'confirm',
+            onConfirm: async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/order`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            stock_code: currentStockCode,
+                            quantity: qty,
+                            price: price,
+                            order_type: currentOrderType,
+                            order_dvsn: currentOrderDvsn
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.error) {
+                        showModal({ title: '주문 실패', message: result.error, type: 'alert' });
+                    } else {
+                        const stockName = elements.mainPrice.offsetParent ? elements.stockName.textContent : currentStockCode;
+                        const sideLabel = currentOrderType === 'buy' ? '구매' : '판매';
+                        const priceLabel = currentOrderDvsn === '01' ? '시장가' : `${formatNumber(price)}원`;
+
+                        showModal({
+                            title: '주문 완료',
+                            message: `[${stockName}] ${qty}주 ${priceLabel} ${sideLabel} 주문이 완료되었습니다.`,
+                            type: 'alert',
+                            onConfirm: () => {
+                                // Navigate/Refresh only after user clicks OK
+                                fetchBalance();
+                                if (elements.portfolioView.style.display !== 'none') {
+                                    fetchPortfolio();
+                                } else {
+                                    showPortfolio();
+                                }
+                                // Second refresh
+                                setTimeout(() => {
+                                    fetchBalance();
+                                    fetchPortfolio();
+                                }, 1000);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Order inner error', e);
+                    showModal({ title: '오류', message: '주문 처리 중 오류가 발생했습니다.', type: 'alert' });
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error('executeOrder critical error:', err);
+        alert('주문 기능 오류: ' + err.message);
+    }
 }
 
 // Modal Logic

@@ -7,6 +7,9 @@ class Stock(BaseModel):
     price: float
     change_amount: float
     change_rate: float
+    overtime_price: Optional[float] = 0
+    overtime_change: Optional[float] = 0
+    overtime_rate: Optional[float] = 0
 
 class Order(BaseModel):
     stock_code: str

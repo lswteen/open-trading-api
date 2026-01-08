@@ -692,3 +692,42 @@ body {
         opacity: 1;
     }
 }
+
+/* Percentage Buttons */
+.qty-input-wrapper {
+    width: 100%;
+}
+
+.percent-btns {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.p-btn {
+    flex: 1;
+    background: var(--toss-deep-gray);
+    color: var(--text-secondary);
+    border: none;
+    border-radius: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.p-btn:hover {
+    background: #2a2c30;
+    color: var(--text-primary);
+}
+
+.buying-power-info,
+.holding-qty-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    padding: 0 4px;
+}
